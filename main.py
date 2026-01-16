@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import asyncio
 from database import db
@@ -19,6 +20,17 @@ async def lifespan(app: FastAPI):
     print("Server đang tắt...")
 
 app = FastAPI(lifespan=lifespan)
+
+# ==================== CORS Configuration ====================
+# Cho phép tất cả origins (dev)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Cho phép mọi domain
+    allow_credentials=True,
+    allow_methods=["*"],  # Cho phép GET, POST, PUT, DELETE...
+    allow_headers=["*"],  # Cho phép tất cả headers
+)
+# ============================================================
 
 mqtt.init_app(app)
 
