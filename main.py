@@ -22,6 +22,40 @@ app = FastAPI(lifespan=lifespan)
 
 mqtt.init_app(app)
 
+# Root endpoint
+@app.get("/")
+async def root():
+    return {
+        "message": "Smart Home Backend API",
+        "status": "running",
+        "docs": "/docs",
+        "endpoints": {
+            "rooms": "/rooms",
+            "devices": "/devices",
+            "health": "/health",
+            "mqtt-status": "/mqtt-status"
+        }
+    }
+
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    return {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat()
+    }
+
+# MQTT status endpoint
+@app.get("/mqtt-status")
+async def mqtt_status():
+    is_connected = mqtt.client is not None and mqtt.client.is_connected()
+    return {
+        "mqtt_connected": is_connected,
+        "broker_host": "5b495904868d4c9e9e07c33dde4f6274.s1.eu.hivemq.cloud",
+        "broker_port": 8883,
+        "status": "Connected ✅" if is_connected else "Disconnected ❌"
+    }
+
 # Đăng ký các Router
 app.include_router(rooms.router, prefix="/rooms", tags=["Rooms"])
 app.include_router(devices.router, prefix="/devices", tags=["Devices"])
