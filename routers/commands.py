@@ -38,27 +38,25 @@ async def send_command(cmd_req: CommandRequest):
 
     target_val = 1 if cmd_req.command == "TURN_ON" else 0
 
-    # === CẬP NHẬT DATABASE TRƯỚC ===
+    # === CẬP NHẬT DATABASE: endpoints + currentLampStates ===
     await db.devices.update_one(
         {"_id": ObjectId(device_id), "endpoints.id": cmd_req.endpointId},
-        {"$set": {"endpoints.$.value": target_val, "endpoints.$.lastUpdated": datetime.now()}}
+        {"$set": {
+            "endpoints.$.value": target_val,
+            "endpoints.$.lastUpdated": datetime.now(),
+            f"currentLampStates.device{cmd_req.endpointId}": target_val
+        }}
     )
 
-    # === TẠO PAYLOAD VỚI TRẠNG THÁI MỚI CẬP NHẬT ===
-    payload = {}
-    for i in range(1, 4):
-        key = f"device{i}"
-        if i == cmd_req.endpointId:
-            payload[key] = target_val
-        else:
-            current_val = 0
-            for ep in device.get("endpoints", []):
-                if ep["id"] == i:
-                    current_val = ep.get("value", 0)
-                    if isinstance(current_val, dict):
-                        current_val = 0
-                    break
-            payload[key] = current_val
+    # === LẤY TRẠNG THÁI MỚI TỪ currentLampStates (ƯU TIÊN) ===
+    updated_device = await db.devices.find_one({"_id": ObjectId(device_id)})
+    lamp_states = updated_device.get("currentLampStates", {})
+
+    payload = {
+        "device1": lamp_states.get("device1", 0),
+        "device2": lamp_states.get("device2", 0),
+        "device3": lamp_states.get("device3", 0),
+    }
 
     topic = f"{room_id}/device"
     mqtt.publish(topic, json.dumps(payload))

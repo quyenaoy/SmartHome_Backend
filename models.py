@@ -39,6 +39,10 @@ class Device(MongoBaseModel):
     isOnline: bool = False
     lastSeenAt: Optional[datetime] = None
     createdAt: datetime = Field(default_factory=datetime.now)
+    
+    # Thêm fields lưu trạng thái trực tiếp
+    currentLampStates: Optional[dict] = Field(default_factory=lambda: {"device1": 0, "device2": 0, "device3": 0})
+    currentSensorData: Optional[dict] = Field(default_factory=lambda: {"temperature": 0.0, "humidity": 0.0})
 
 # Command - Lệnh điều khiển
 class Command(MongoBaseModel):

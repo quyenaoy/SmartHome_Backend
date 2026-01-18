@@ -98,6 +98,25 @@ async def message(client, topic, payload, qos, properties):
             # Xử lý theo loại message
             if type_msg == "device":
                 if isinstance(data, dict):
+                    # Cập nhật currentLampStates trước
+                    update_lamp_states = {}
+                    for key, val in data.items():
+                        if key.startswith("device") and key in ["device1", "device2", "device3"]:
+                            update_lamp_states[f"currentLampStates.{key}"] = val
+
+                    if update_lamp_states:
+                        await db.devices.update_one(
+                            {"roomId": room_id},
+                            {
+                                "$set": {
+                                    **update_lamp_states,
+                                    "isOnline": True,
+                                    "lastSeenAt": datetime.now()
+                                }
+                            }
+                        )
+
+                    # Cập nhật từng endpoint
                     for key, val in data.items():
                         try:
                             if key.startswith("device"):
@@ -109,8 +128,6 @@ async def message(client, topic, payload, qos, properties):
                                         "$set": {
                                             "endpoints.$.value": val,
                                             "endpoints.$.lastUpdated": datetime.now(),
-                                            "isOnline": True,
-                                            "lastSeenAt": datetime.now()
                                         }
                                     }
                                 )
@@ -124,13 +141,25 @@ async def message(client, topic, payload, qos, properties):
             elif type_msg == "status":
                 SENSOR_ENDPOINT_ID = 4
 
+                # Cập nhật currentSensorData
+                if isinstance(data, dict):
+                    await db.devices.update_one(
+                        {"roomId": room_id},
+                        {
+                            "$set": {
+                                "currentSensorData.temperature": data.get("temperature", 0.0),
+                                "currentSensorData.humidity": data.get("humidity", 0.0),
+                                "isOnline": True
+                            }
+                        }
+                    )
+
                 result = await db.devices.update_one(
                     {"roomId": room_id, "endpoints.id": SENSOR_ENDPOINT_ID},
                     {
                         "$set": {
                             "endpoints.$.value": data,
                             "endpoints.$.lastUpdated": datetime.now(),
-                            "isOnline": True
                         }
                     }
                 )
