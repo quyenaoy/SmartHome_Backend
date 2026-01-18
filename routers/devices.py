@@ -17,10 +17,18 @@ async def create_device(device_req: DeviceCreateRequest):
     if not room:
         raise HTTPException(status_code=404, detail="Phòng không tồn tại")
 
+    # Tạo 4 endpoints mặc định: 3 SWITCH (id 1-3) + 1 SENSOR (id 4)
+    default_endpoints = [
+        DeviceEndpoint(id=1, name="Đèn 1", type="SWITCH", value=0, lastUpdated=datetime.now()).model_dump(),
+        DeviceEndpoint(id=2, name="Đèn 2", type="SWITCH", value=0, lastUpdated=datetime.now()).model_dump(),
+        DeviceEndpoint(id=3, name="Đèn 3", type="SWITCH", value=0, lastUpdated=datetime.now()).model_dump(),
+        DeviceEndpoint(id=4, name="Cảm biến môi trường", type="SENSOR", value={"temperature": 0.0, "humidity": 0.0}, lastUpdated=datetime.now()).model_dump(),
+    ]
+
     new_device = Device(
         roomId=device_req.roomId,
         name=device_req.name,
-        endpoints=[],
+        endpoints=default_endpoints,
         createdAt=datetime.now()
     )
 
@@ -209,8 +217,15 @@ async def send_command(
         raise HTTPException(status_code=400, detail="Thiết bị chưa được gán vào phòng")
 
     target_val = 1 if cmd_req.command == "TURN_ON" else 0
-    payload = {}
 
+    # === CẬP NHẬT DATABASE TRƯỚC ===
+    await db.devices.update_one(
+        {"_id": ObjectId(device_id), "endpoints.id": cmd_req.endpointId},
+        {"$set": {"endpoints.$.value": target_val, "endpoints.$.lastUpdated": datetime.now()}}
+    )
+
+    # === TẠO PAYLOAD VỚI TRẠNG THÁI MỚI CẬP NHẬT ===
+    payload = {}
     for i in range(1, 4):
         key = f"device{i}"
         if i == cmd_req.endpointId:
@@ -218,8 +233,10 @@ async def send_command(
         else:
             current_val = 0
             for ep in device.get("endpoints", []):
-                if ep["id"] == i and ep.get("value") == 1:
-                    current_val = 1
+                if ep["id"] == i:
+                    current_val = ep.get("value", 0)
+                    if isinstance(current_val, dict):
+                        current_val = 0
                     break
             payload[key] = current_val
 

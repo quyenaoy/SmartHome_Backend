@@ -38,6 +38,13 @@ async def send_command(cmd_req: CommandRequest):
 
     target_val = 1 if cmd_req.command == "TURN_ON" else 0
 
+    # === CẬP NHẬT DATABASE TRƯỚC ===
+    await db.devices.update_one(
+        {"_id": ObjectId(device_id), "endpoints.id": cmd_req.endpointId},
+        {"$set": {"endpoints.$.value": target_val, "endpoints.$.lastUpdated": datetime.now()}}
+    )
+
+    # === TẠO PAYLOAD VỚI TRẠNG THÁI MỚI CẬP NHẬT ===
     payload = {}
     for i in range(1, 4):
         key = f"device{i}"
@@ -46,8 +53,10 @@ async def send_command(cmd_req: CommandRequest):
         else:
             current_val = 0
             for ep in device.get("endpoints", []):
-                if ep["id"] == i and ep.get("value") == 1:
-                    current_val = 1
+                if ep["id"] == i:
+                    current_val = ep.get("value", 0)
+                    if isinstance(current_val, dict):
+                        current_val = 0
                     break
             payload[key] = current_val
 
