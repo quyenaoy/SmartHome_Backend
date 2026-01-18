@@ -10,10 +10,12 @@ router = APIRouter()
 
 # API gửi lệnh điều khiển endpoint qua MQTT
 @router.post("/", status_code=status.HTTP_201_CREATED)
-async def send_command(
-    device_id: str,
-    cmd_req: CommandRequest
-):
+async def send_command(cmd_req: CommandRequest):
+    if not cmd_req.deviceId:
+        raise HTTPException(status_code=400, detail="Thiếu deviceId")
+
+    device_id = cmd_req.deviceId
+
     device = await db.devices.find_one({"_id": ObjectId(device_id)})
     if not device:
         raise HTTPException(status_code=404, detail="Thiết bị không tồn tại")
@@ -30,31 +32,22 @@ async def send_command(
 
     await db.commands.insert_one(new_command.model_dump(by_alias=True, exclude=["id"]))
 
-    # Gửi lệnh qua MQTT
     room_id = device.get("roomId")
     if not room_id:
         raise HTTPException(status_code=400, detail="Thiết bị chưa được gán vào phòng")
 
+    target_val = 1 if cmd_req.command == "TURN_ON" else 0
+
     payload = {}
-
-    target_val = 0
-    if cmd_req.command == "TURN_ON":
-        target_val = 1
-    elif cmd_req.command == "TURN_OFF":
-        target_val = 0
-
-    # Tạo payload đầy đủ cho tất cả các endpoint (device1, device2, device3)
     for i in range(1, 4):
         key = f"device{i}"
-
         if i == cmd_req.endpointId:
             payload[key] = target_val
         else:
             current_val = 0
             for ep in device.get("endpoints", []):
-                if ep["id"] == i:
-                    if ep.get("value") == 1: 
-                        current_val = 1
+                if ep["id"] == i and ep.get("value") == 1:
+                    current_val = 1
                     break
             payload[key] = current_val
 
@@ -62,8 +55,9 @@ async def send_command(
     mqtt.publish(topic, json.dumps(payload))
 
     return {
-        "message": "Đã gửi lệnh xuống thiết bị", 
-        "mqtt_topic": topic, 
+        "message": "Đã gửi lệnh xuống thiết bị",
+        "commandId": new_command.commandId,
+        "mqtt_topic": topic,
         "payload": payload
     }
 

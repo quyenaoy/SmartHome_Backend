@@ -79,6 +79,7 @@ class EndpointUpdateRequest(BaseModel):
     type: Optional[str] = None
 
 class CommandRequest(BaseModel):
+    deviceId: Optional[str] = None
     endpointId: int
     command: str # TURN_ON, TURN_OFF
     payload: Optional[str] = None

@@ -5,8 +5,12 @@ import ssl
 import logging
 
 # Setup logging
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)  # Đổi từ DEBUG sang INFO để giảm log spam
 logger = logging.getLogger(__name__)
+
+# Tắt log của MQTT library để không spam heartbeat
+logging.getLogger("gmqtt").setLevel(logging.WARNING)
+logging.getLogger("fastapi_mqtt").setLevel(logging.WARNING)
 
 load_dotenv()
 
