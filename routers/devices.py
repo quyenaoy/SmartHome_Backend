@@ -261,7 +261,7 @@ async def send_command(
     payload_json = json.dumps(payload)
     
     # Kiểm tra MQTT connection
-    if not mqtt.client or not mqtt.client.is_connected():
+    if not mqtt.client or not mqtt.client.is_connected:
         print("[ERROR] MQTT client not connected!")
         raise HTTPException(status_code=503, detail="MQTT broker không kết nối")
     
