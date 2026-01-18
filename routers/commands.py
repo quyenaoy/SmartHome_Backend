@@ -55,16 +55,28 @@ async def send_command(cmd_req: CommandRequest):
             {"$set": {"currentLampStates": {"device1": 0, "device2": 0, "device3": 0}}}
         )
 
-    # === CẬP NHẬT DATABASE: endpoints + currentLampStates ===
-    await db.devices.update_one(
+    # === CẬP NHẬT DATABASE: currentLampStates (trực tiếp + endpoint nếu tồn tại) ===
+    update_data = {
+        f"currentLampStates.device{cmd_req.endpointId}": target_val
+    }
+    
+    # Cũng cố gắng update endpoint nếu tồn tại
+    result = await db.devices.update_one(
         {"_id": device_obj_id, "endpoints.id": cmd_req.endpointId},
         {"$set": {
             "endpoints.$.value": target_val,
-            "endpoints.$.lastUpdated": datetime.now(),
-            f"currentLampStates.device{cmd_req.endpointId}": target_val
+            "endpoints.$.lastUpdated": datetime.now()
         }}
     )
-
+    
+    # Nếu không tìm thấy endpoint trong array, vẫn update currentLampStates trực tiếp
+    if result.matched_count == 0:
+        print(f"[WARN] Endpoint {cmd_req.endpointId} không tìm thấy trong array, cập nhật currentLampStates trực tiếp")
+        await db.devices.update_one(
+            {"_id": device_obj_id},
+            {"$set": update_data}
+        )
+    
     # === LẤY TRẠNG THÁI MỚI TỪ currentLampStates (ƯU TIÊN) ===
     updated_device = await db.devices.find_one({"_id": device_obj_id})
     lamp_states = updated_device.get("currentLampStates", {})
