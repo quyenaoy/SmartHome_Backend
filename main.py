@@ -76,14 +76,15 @@ app.include_router(commands.router, prefix="/commands", tags=["Commands"])
 # MQTT Event Handlers
 @mqtt.on_connect()
 def connect(client, flags, rc, properties):
-    print("Đã kết nối tới MQTT Broker!")
+    print(f"[MQTT] Connected to broker! rc={rc}, flags={flags}")
     mqtt.client.subscribe("+/+")
+    print("[MQTT] Subscribed to +/+ (all topics)")
 
 @mqtt.on_message()
 async def message(client, topic, payload, qos, properties):
     try:
         payload_str = payload.decode()
-        print(f"Received message: {topic} -> {payload_str}")
+        print(f"[MQTT IN] Received: {topic} -> {payload_str} (qos={qos})")
 
         parts = topic.split("/")
         if len(parts) == 2:
@@ -97,6 +98,7 @@ async def message(client, topic, payload, qos, properties):
 
             # Xử lý theo loại message
             if type_msg == "device":
+                print(f"[MQTT IN] Processing device update for room {room_id}: {data}")
                 if isinstance(data, dict):
                     # Cập nhật currentLampStates trước
                     update_lamp_states = {}

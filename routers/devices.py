@@ -241,7 +241,16 @@ async def send_command(
     }
 
     topic = f"{room_id}/device"
-    mqtt.publish(topic, json.dumps(payload))
+    payload_json = json.dumps(payload)
+    
+    # Kiểm tra MQTT connection
+    if not mqtt.client or not mqtt.client.is_connected():
+        print("[ERROR] MQTT client not connected!")
+        raise HTTPException(status_code=503, detail="MQTT broker không kết nối")
+    
+    # Publish với QoS=1 để đảm bảo ESP nhận được
+    mqtt.publish(topic, payload_json, qos=1)
+    print(f"[DEVICE CMD] Published to {topic}: {payload_json}")
 
     return {
         "message": "Đã gửi lệnh xuống thiết bị",
