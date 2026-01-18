@@ -19,8 +19,14 @@ async def send_command(cmd_req: CommandRequest):
         raise HTTPException(status_code=400, detail="endpointId phải từ 1 đến 3 (chỉ điều khiển đèn)")
 
     device_id = cmd_req.deviceId
+    
+    # Validate ObjectId format
+    try:
+        device_obj_id = ObjectId(device_id)
+    except Exception:
+        raise HTTPException(status_code=400, detail=f"deviceId không hợp lệ: '{device_id}' (phải là 24 ký tự hex)")
 
-    device = await db.devices.find_one({"_id": ObjectId(device_id)})
+    device = await db.devices.find_one({"_id": device_obj_id})
     if not device:
         raise HTTPException(status_code=404, detail="Thiết bị không tồn tại")
 
@@ -45,13 +51,13 @@ async def send_command(cmd_req: CommandRequest):
     # === ĐẢM BẢO DEVICE CÓ currentLampStates (khởi tạo nếu chưa có) ===
     if "currentLampStates" not in device or device.get("currentLampStates") is None:
         await db.devices.update_one(
-            {"_id": ObjectId(device_id)},
+            {"_id": device_obj_id},
             {"$set": {"currentLampStates": {"device1": 0, "device2": 0, "device3": 0}}}
         )
 
     # === CẬP NHẬT DATABASE: endpoints + currentLampStates ===
     await db.devices.update_one(
-        {"_id": ObjectId(device_id), "endpoints.id": cmd_req.endpointId},
+        {"_id": device_obj_id, "endpoints.id": cmd_req.endpointId},
         {"$set": {
             "endpoints.$.value": target_val,
             "endpoints.$.lastUpdated": datetime.now(),
@@ -60,7 +66,7 @@ async def send_command(cmd_req: CommandRequest):
     )
 
     # === LẤY TRẠNG THÁI MỚI TỪ currentLampStates (ƯU TIÊN) ===
-    updated_device = await db.devices.find_one({"_id": ObjectId(device_id)})
+    updated_device = await db.devices.find_one({"_id": device_obj_id})
     lamp_states = updated_device.get("currentLampStates", {})
 
     payload = {
