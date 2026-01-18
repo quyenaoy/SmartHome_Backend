@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import asyncio
 from database import db
-from routers import rooms, devices
+from routers import rooms, devices, commands
 from mqtt_client import mqtt
 from datetime import datetime
 import json
@@ -71,6 +71,7 @@ async def mqtt_status():
 # Đăng ký các Router
 app.include_router(rooms.router, prefix="/rooms", tags=["Rooms"])
 app.include_router(devices.router, prefix="/devices", tags=["Devices"])
+app.include_router(commands.router, prefix="/commands", tags=["Commands"])
 
 # MQTT Event Handlers
 @mqtt.on_connect()
