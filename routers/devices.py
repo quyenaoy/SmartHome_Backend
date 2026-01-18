@@ -198,6 +198,10 @@ async def send_command(
     device_id: str,
     cmd_req: CommandRequest
 ):
+    # Validate endpoint ID
+    if cmd_req.endpointId < 1 or cmd_req.endpointId > 3:
+        raise HTTPException(status_code=400, detail="endpointId phải từ 1 đến 3 (chỉ điều khiển đèn)")
+
     device = await db.devices.find_one({"_id": ObjectId(device_id)})
     if not device:
         raise HTTPException(status_code=404, detail="Thiết bị không tồn tại")
@@ -219,6 +223,13 @@ async def send_command(
         raise HTTPException(status_code=400, detail="Thiết bị chưa được gán vào phòng")
 
     target_val = 1 if cmd_req.command == "TURN_ON" else 0
+
+    # === ĐẢM BẢO DEVICE CÓ currentLampStates (khởi tạo nếu chưa có) ===
+    if "currentLampStates" not in device or device.get("currentLampStates") is None:
+        await db.devices.update_one(
+            {"_id": ObjectId(device_id)},
+            {"$set": {"currentLampStates": {"device1": 0, "device2": 0, "device3": 0}}}
+        )
 
     # === CẬP NHẬT DATABASE: endpoints + currentLampStates ===
     await db.devices.update_one(

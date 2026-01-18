@@ -13,6 +13,10 @@ router = APIRouter()
 async def send_command(cmd_req: CommandRequest):
     if not cmd_req.deviceId:
         raise HTTPException(status_code=400, detail="Thiếu deviceId")
+    
+    # Validate endpoint ID
+    if cmd_req.endpointId < 1 or cmd_req.endpointId > 3:
+        raise HTTPException(status_code=400, detail="endpointId phải từ 1 đến 3 (chỉ điều khiển đèn)")
 
     device_id = cmd_req.deviceId
 
@@ -37,6 +41,13 @@ async def send_command(cmd_req: CommandRequest):
         raise HTTPException(status_code=400, detail="Thiết bị chưa được gán vào phòng")
 
     target_val = 1 if cmd_req.command == "TURN_ON" else 0
+
+    # === ĐẢM BẢO DEVICE CÓ currentLampStates (khởi tạo nếu chưa có) ===
+    if "currentLampStates" not in device or device.get("currentLampStates") is None:
+        await db.devices.update_one(
+            {"_id": ObjectId(device_id)},
+            {"$set": {"currentLampStates": {"device1": 0, "device2": 0, "device3": 0}}}
+        )
 
     # === CẬP NHẬT DATABASE: endpoints + currentLampStates ===
     await db.devices.update_one(
